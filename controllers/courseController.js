@@ -24,6 +24,10 @@ module.exports.viewProfile= async function(req,res){
 
 //render add form
 module.exports.renderAddForm =  function(req, res){
+    if (!user.can('add course')){
+        res.redirect('/');
+        return
+    }
     const course =  {
         name: '',
         department: departments[0],
@@ -35,6 +39,10 @@ module.exports.renderAddForm =  function(req, res){
 
 //add
 module.exports.addCourse = async function(req, res){
+    if (!user.can('add course')){
+        res.redirect('/');
+        return
+    }
     const course = await Course.create({
         name: req.body.name,
         department: req.body.department,
@@ -46,37 +54,56 @@ module.exports.addCourse = async function(req, res){
 
 //render edit form
 module.exports.renderEditForm = async function(req, res){
+    if (!user.can('edit course')){
+        res.redirect('/');
+        return
+    }
     const course = await Course.findByPk(req.params.id);
     res.render('course/edit', {course, departments});
 }
 
 //update
 module.exports.updateCourse = async function(req, res){
+    if (!user.can('edit course')){
+        res.redirect('/');
+        return
+    }
     const course = await Course.update({
         name: req.body.name,
         department: req.body.department,
         instructor_name: req.body.instructor_name,
         description: req.body.description
-        }, {
+    }, {
         where: {
             id: req.params.id
         }
-        });
+    });
     res.redirect(`/courses/profile/${req.params.id}`);
 }
 
 //delete
 module.exports.deleteCourse = async function(req, res){
+    if (!user.can('delete course')){
+        res.redirect('/');
+        return
+    }
     await Course.destroy({
         where: {
             id:req.params.id
         }
-        });
+    });
     res.redirect('/courses');
 }
 
 //Add student to a course
 module.exports.enrollStudent = async function(req, res){
+    const isAdmin = req.user.can('enroll student');
+    const profileBelongsToUser = req.user.can('enroll self') && req.user.matchesStudentId(req.body.student);
+
+    if (!isAdmin && !profileBelongsToUser){
+        res.redirect('/')
+        return
+    }
     await StudentCourses.create({
         student_id: req.body.student,
         course_id: req.params.courseId
@@ -86,6 +113,13 @@ module.exports.enrollStudent = async function(req, res){
 
 //remove a student from a course
 module.exports.removeStudent = async function(req, res){
+    const isAdmin = req.user.can('drop student');
+    const profileBelongsToUser = req.user.can('drop self') && req.user.matchesStudentId(req.params.studentId);
+
+    if (!isAdmin && !profileBelongsToUser){
+        res.redirect('/')
+        return
+    }
     await StudentCourses.destroy({
         where: {
             course_id: req.params.courseId,
